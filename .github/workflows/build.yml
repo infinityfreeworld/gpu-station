@@ -1,0 +1,65 @@
+# 🐳 Construction de l'image « GPU Station » (modèles 3D + vidéo pré-installés).
+#
+# POURQUOI ICI et pas sur le serveur : l'image pèse ~35 Go. La construire sur le VPS de
+# production revenait à faire cohabiter 14 Go de poids + leur commit avec les conteneurs
+# clients sur un seul disque de 200 Go — deux tentatives ont saturé le disque et échoué au
+# commit. Ici le disque est jetable, l'envoi vers ghcr.io reste interne à GitHub (aucune
+# donnée ne transite par la connexion de l'atelier), et c'est gratuit.
+name: Image GPU Station
+
+on:
+  workflow_dispatch: # lancement manuel depuis l'onglet Actions
+  push:
+    paths:
+      - "Dockerfile"
+      - "entrypoint.sh"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      packages: write # requis pour publier sur ghcr.io
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Un runner neuf n'offre que ~14 Go libres : bien trop peu pour 35 Go d'image.
+      # On récupère la place occupée par des SDK dont cette construction n'a aucun usage.
+      - name: Libérer de l'espace disque
+        run: |
+          echo "avant :"; df -h / | tail -1
+          sudo rm -rf /opt/hostedtoolcache /usr/local/lib/android /usr/share/dotnet \
+                      /opt/ghc /usr/local/.ghcup /usr/local/share/boost || true
+          sudo docker image prune -af || true
+          echo "après :"; df -h / | tail -1
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: S'authentifier auprès de ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construire et publier
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # `1` est la version que le réglage admin `vastImage` désigne ; `latest` sert de
+          # repère lisible. Pas de cache de registre : les couches lourdes sont des
+          # téléchargements de poids, que le cache ne rendrait pas plus rapides.
+          tags: |
+            ghcr.io/infinityfreeworld/gpu-station:1
+            ghcr.io/infinityfreeworld/gpu-station:latest
+          provenance: false
+
+      - name: Rappel
+        run: |
+          echo "Image publiée. Deux gestes restent côté DATASPACE :"
+          echo " 1. rendre le paquet PUBLIC (sinon Vast.ai ne peut pas le télécharger) ;"
+          echo " 2. coller ghcr.io/infinityfreeworld/gpu-station:1 dans le réglage admin vastImage."
