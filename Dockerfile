@@ -32,12 +32,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Les poids partagent un cache unique (HF_HOME) → une seule copie dans l'image.
 RUN mkdir -p /opt/ds/hf /var/lib/dataspace
 
+# Cache-bust : les installeurs sont servis dynamiquement par DATASPACE et évoluent, mais
+# l'instruction RUN ne change pas — Docker réutiliserait alors une couche périmée. On bump ce
+# marqueur à chaque correctif d'installeur pour forcer la reconstruction des couches ci-dessous.
+# v2 (2026-07-23) : mesh3d fige numpy<2 (tsr/torchmcubes/ptp), video ajoute tiktoken.
+ARG INSTALLERS_REV=v2-2026-07-23
+
 # ── Capacité 3D : TripoSR + poids (~1,7 Go) ────────────────────────────────────
-RUN DS_PREFETCH=1 bash -c "curl -fsSL ${DS_BASE}/api/spot/mesh3d-install | bash"
+RUN echo "rev ${INSTALLERS_REV}" && DS_PREFETCH=1 bash -c "curl -fsSL ${DS_BASE}/api/spot/mesh3d-install | bash"
 
 # ── Capacité VIDÉO : LTX-Video + poids (~12 Go) ────────────────────────────────
 # Couche séparée : si le modèle vidéo change, la couche 3D reste en cache.
-RUN DS_PREFETCH=1 bash -c "curl -fsSL ${DS_BASE}/api/spot/video-install | bash"
+RUN echo "rev ${INSTALLERS_REV}" && DS_PREFETCH=1 bash -c "curl -fsSL ${DS_BASE}/api/spot/video-install | bash"
 
 # Au démarrage, la station se rattache au réseau : l'instance passe le jeton d'installation
 # dans DS_INSTALL_URL (fabriqué par l'admin DATASPACE). Les tests de fumée s'exécutent alors
