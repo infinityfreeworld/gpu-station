@@ -45,10 +45,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Construire et publier
+      # DEUX IMAGES depuis un seul Dockerfile (cibles multi-stage). Mesuré sur le
+      # manifeste : la vidéo pèse 20,2 Go sur 36,2 — soit 56 % — et une station louée
+      # pour de la 3D la téléchargeait pour rien (24 min de « loading » constatées).
+      # L'image légère est construite EN PREMIER : buildx garde ses couches en cache,
+      # donc l'image complète les réutilise et ne les recompile pas.
+      - name: Construire et publier — image 3D seule (légère, ~16 Go)
         uses: docker/build-push-action@v6
         with:
           context: .
+          target: trois-d
+          push: true
+          tags: ghcr.io/infinityfreeworld/gpu-station:3d
+          provenance: false
+
+      - name: Construire et publier — image complète (3D + vidéo, ~36 Go)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: complet
           push: true
           # `1` est la version que le réglage admin `vastImage` désigne ; `latest` sert de
           # repère lisible. Pas de cache de registre : les couches lourdes sont des
