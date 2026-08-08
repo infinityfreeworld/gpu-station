@@ -36,7 +36,7 @@ RUN mkdir -p /opt/ds/hf /var/lib/dataspace
 # l'instruction RUN ne change pas — Docker réutiliserait alors une couche périmée. On bump ce
 # marqueur à chaque correctif d'installeur pour forcer la reconstruction des couches ci-dessous.
 # v2 (2026-07-23) : mesh3d fige numpy<2 (tsr/torchmcubes/ptp), video ajoute tiktoken.
-ARG INSTALLERS_REV=v2-2026-07-23
+ARG INSTALLERS_REV=v3-2026-08-08
 
 # ── Capacité 3D : TripoSR + poids (~1,7 Go) ────────────────────────────────────
 RUN echo "rev ${INSTALLERS_REV}" && DS_PREFETCH=1 bash -c "curl -fsSL ${DS_BASE}/api/spot/mesh3d-install | bash"
